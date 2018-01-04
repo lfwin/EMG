@@ -1,4 +1,4 @@
-class Dataset(object):
+class Dataset:
     def __init__(self, num_samples, sample_len):
         self.num_samples = num_samples
         self.sample_len = sample_len

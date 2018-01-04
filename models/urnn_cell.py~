@@ -126,8 +126,8 @@ class URNNCell(tf.contrib.rnn.RNNCell):
         #print("cell.call state:", state.shape, state.dtype)
 
         # prepare input linear combination
-        #import pdb
-        #pdb.set_trace()
+        import pdb
+        pdb.set_trace()
         inputs_mul = tf.matmul(inputs, tf.transpose(self.w_ih)) # [batch_sz, 2*num_units]
         inputs_mul_c = tf.complex( inputs_mul[:, :self._num_units], 
                                    inputs_mul[:, self._num_units:] ) 

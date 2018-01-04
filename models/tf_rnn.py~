@@ -199,7 +199,7 @@ class TFRNN:
         plt.subplot(211)
         plt.plot(net_o[:, 0], 'r-')
         plt.plot(y[:, 0], 'b-')
-        plt.subplot(212)
+        plt.subplot(211)
         plt.plot(net_o[:, 1], 'r-')
         plt.plot(y[:, 1], 'b-')
         plt.show()

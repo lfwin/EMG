@@ -47,7 +47,19 @@ class TFRNN:
         self.input_x = tf.placeholder(tf.float32, [None, None, num_in], name="input_x_"+self.name)
         self.input_y = tf.placeholder(tf.float32, [None, num_target] if single_output else [None, None, num_target],  
                                       name="input_y_"+self.name)
-        
+
+        # add by xiuyi
+        # add some conv layer for feature extraction and noise removing
+
+        #pdb.set_trace()
+        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(5, num_in, 8), 
+                                            initializer=tf.contrib.layers.xavier_initializer()) # fixm
+        a1 = tf.nn.conv1d(self.input_x, self.w_conv1, stride=1, padding="SAME")
+        a1 = tf.nn.relu(a1)
+        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(5, 8, 8), 
+                                            initializer=tf.contrib.layers.xavier_initializer()) # fixm
+        a2 = tf.nn.conv1d(a1, self.w_conv2, stride=1, padding="SAME")
+        a2 = tf.nn.relu(a2)
         # rnn initial state(s)
         self.init_states = []
         self.dyn_rnn_init_states = None
@@ -80,7 +92,10 @@ class TFRNN:
         #pdb.set_trace()
         # run the dynamic rnn and get hidden layer outputs
         # outputs_h: [batch_size, max_time, self.output_size]
-        outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, self.input_x, initial_state=self.dyn_rnn_init_states) 
+        #outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, self.input_x, initial_state=self.dyn_rnn_init_states) 
+        #modified by xiuyi
+        outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, a2, initial_state=self.dyn_rnn_init_states)   
+       
         # returns (outputs, state)
         #print("after dyn_rnn outputs_h:", outputs_h.shape, outputs_h.dtype)
         #print("after dyn_rnn final_state:", final_state.shape, final_state.dtype)
@@ -99,13 +114,22 @@ class TFRNN:
         self.outputs_o = outputs_o
         # calculate losses and set up optimizer
          
+        # add by xiuyi 
+        # due emg signal two noise, add a nonlinear and convolution 
+
+        #pdb.set_trace()
+        #outputs_o = tf.nn.relu(outputs_o)
+        #b, t, o = outputs_o.get_shape().as_list()
+        #self.w_sm = tf.get_variable("w_sm_"+self.name, shape=(5, o, o), 
+        #                                    initializer=tf.contrib.layers.xavier_initializer()) # fixm
+        #outputs_o = tf.nn.conv1d(outputs_o, self.w_sm, stride=1, padding="SAME")
+
         # loss function is usually one of these two:
         #   tf.nn.sparse_softmax_cross_entropy_with_logits 
         #     (classification, num_out = num_classes, num_target = 1)
         #   tf.squared_difference 
         #     (regression, num_out = num_target)
-        import pdb
-        #pdb.set_trace()
+
         if loss_function == tf.squared_difference:
             self.total_loss = tf.reduce_mean(loss_function(outputs_o, self.input_y))
         elif loss_function == tf.nn.sparse_softmax_cross_entropy_with_logits:
@@ -199,7 +223,7 @@ class TFRNN:
         plt.subplot(211)
         plt.plot(net_o[:, 0], 'r-')
         plt.plot(y[:, 0], 'b-')
-        plt.subplot(211)
+        plt.subplot(212)
         plt.plot(net_o[:, 1], 'r-')
         plt.plot(y[:, 1], 'b-')
         plt.show()
@@ -222,12 +246,13 @@ class TFRNN:
         # fill (X,Y) placeholders
         feed_dict = {self.input_x: X, self.input_y: Y}
         batch_size = X.shape[0]
-
+        
+        #pdb.set_trace()
         # fill initial state
         for init_state in self.init_states:
             # init_state: [batch_size x cell.state_size[i]]
             feed_dict[init_state] = np.random.uniform(-self.init_state_C, self.init_state_C, [batch_size, init_state.shape[1]])
-
+        #pdb.set_trace()
         # run and return the loss
         if training:
             loss, _ = sess.run([self.total_loss, self.train_step], feed_dict)

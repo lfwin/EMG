@@ -5,6 +5,7 @@ import pdb
 from scipy import signal
 import matplotlib.pyplot as plt
 from sets import Set
+#from models.loss import smooth
 
 def normalize(X):
   if X.shape[1] == 1:
@@ -26,8 +27,14 @@ class EMGProblemDataset(Dataset):
                     for line in f: # read rest of lines
                         array.append([float(x) for x in line.split()])
                 data[file_name] = np.asarray(array)
-       
         """
+                plt.subplot(211)
+                plt.plot(np.asarray(array))
+                data[file_name] = smooth(np.asarray(array), 5)
+                plt.subplot(212)
+                plt.plot(smooth(np.asarray(array), 5))
+                plt.show()       
+
         for file_name in os.listdir("emg_data/"):
             if file_name.endswith(".txt") and file_name.startswith('emg_'):
                 with open("emg_data/"+file_name, 'r') as f:

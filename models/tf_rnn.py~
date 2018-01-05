@@ -3,6 +3,16 @@ import tensorflow as tf
 from .urnn_cell import URNNCell
 import pdb
 
+# add by xiuyi
+# add a loss that penalize the unregular angle prediction of RNN
+def unreg_loss(pred, alpha=0.3):
+    # pred is RNN prediciton, alpha is coeficient balance this loss with other losses.
+    out = pred[:, 1:] - pred[:, 0:-1]
+    mean, var = tf.nn.moments(out[0, 0:50], axes=1)
+    
+    return alpha*(tf.reduce_sum(var))    
+
+
 def serialize_to_file(loss):
     file=open('losses.txt', 'w')
     for l in loss:
@@ -52,14 +62,18 @@ class TFRNN:
         # add some conv layer for feature extraction and noise removing
 
         #pdb.set_trace()
-        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(5, num_in, 8), 
+        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(50, num_in, 8), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1 = tf.nn.conv1d(self.input_x, self.w_conv1, stride=1, padding="SAME")
         a1 = tf.nn.relu(a1)
-        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(5, 8, 8), 
+        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(50, 8, 8), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a2 = tf.nn.conv1d(a1, self.w_conv2, stride=1, padding="SAME")
         a2 = tf.nn.relu(a2)
+        self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(3, 8, 8), 
+                                            initializer=tf.contrib.layers.xavier_initializer()) # fixm
+        a3 = tf.nn.conv1d(a2, self.w_conv3, stride=1, padding="SAME")
+        a3 = tf.nn.relu(a3)
         # rnn initial state(s)
         self.init_states = []
         self.dyn_rnn_init_states = None
@@ -129,9 +143,9 @@ class TFRNN:
         #     (classification, num_out = num_classes, num_target = 1)
         #   tf.squared_difference 
         #     (regression, num_out = num_target)
-
+        #pdb.set_trace()
         if loss_function == tf.squared_difference:
-            self.total_loss = tf.reduce_mean(loss_function(outputs_o, self.input_y))
+            self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o[:, ::50, :], self.input_y)), unreg_loss(outputs_o))
         elif loss_function == tf.nn.sparse_softmax_cross_entropy_with_logits:
             prepared_labels = tf.cast(tf.squeeze(self.input_y), tf.int32)
             self.total_loss = tf.reduce_mean(loss_function(logits=outputs_o, labels=prepared_labels))
@@ -193,7 +207,7 @@ class TFRNN:
                         print("Epoch:", '{0:3d}'.format(epoch_idx), 
                               "|Batch:", '{0:3d}'.format(batch_idx), 
                               "|TotalExamples:", '{0:5d}'.format(total_examples), # total training examples
-                              "|BatchLoss:", '{0:8.4f}'.format(batch_loss))
+                              "|BatchLoss:", '{0:8.4f}'.format(float(batch_loss)))
 
                 # validate after each epoch
                 validation_loss = self.evaluate(sess, X_val, Y_val)
@@ -221,10 +235,10 @@ class TFRNN:
         net_o = np.reshape(outputs_o, [-1, 2])
         y = np.reshape(Y, [-1, 2])
         plt.subplot(211)
-        plt.plot(net_o[:, 0], 'r-')
+        plt.plot(net_o[::50, 0], 'r-')
         plt.plot(y[:, 0], 'b-')
         plt.subplot(212)
-        plt.plot(net_o[:, 1], 'r-')
+        plt.plot(net_o[::50, 1], 'r-')
         plt.plot(y[:, 1], 'b-')
         plt.show()
 

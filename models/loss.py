@@ -52,23 +52,30 @@ def conv_loss(output, target):
 
     return tf.reduce_mean(loss_function(exp_mvg_o, target))
 
+def unreg_loss(pred, alpha):
+    # pred is RNN prediciton, alpha is coeficient balance this loss with other losses.
+    out = pred[:, 1:] - pred[:, 0:-1]
+    mean, var = tf.nn.moments(out, axes=1)
+    
+    return alpha*(var[0]+var[1])
 
 output = tf.constant(np.array([1, 2, 3, 4]))
-target = tf.constant(np.array([1, 2, 3, 4]))
+target = tf.constant(np.array([[1, 2, 3, 4, 5, 6, 7, 8, 9], [1, 2, 3, 4, 5, 6, 7, 8, 9]]))
 
 #batch_size, max_time, output_size = output.shape
 max_time = output.shape
 i = tf.constant(0)
 c = tf.less(i, max_time)
-b = lambda i, output: exp_moving_average(i, output)
-
+#b = lambda i, output: exp_moving_average(i, output)
+m, v = unreg_loss(target, 0.2)
 #exp_mvg_o = tf.while_loop(c, b, [i])
 exp_mvg_o = np.zeros(4)
 with tf.Session() as sess:
     tf.global_variables_initializer()
-    for i in range(4):
-        exp_mvg_o[i] = exp_moving_average(i, output)
-    print(exp_mvg_o)
+    
+    #for i in range(4):
+        #exp_mvg_o[i] = exp_moving_average(i, output)
+    #print(exp_mvg_o)
 
 
 

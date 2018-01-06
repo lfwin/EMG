@@ -8,7 +8,7 @@ import pdb
 def unreg_loss(pred, alpha=0.3):
     # pred is RNN prediciton, alpha is coeficient balance this loss with other losses.
     out = pred[:, 1:] - pred[:, 0:-1]
-    mean, var = tf.nn.moments(out[0, 0:50], axes=1)
+    mean, var = tf.nn.moments(out[0, 0:5], axes=1)
     
     return alpha*(tf.reduce_sum(var))    
 
@@ -62,18 +62,23 @@ class TFRNN:
         # add some conv layer for feature extraction and noise removing
 
         #pdb.set_trace()
-        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(50, num_in, 8), 
+        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(50, num_in, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1 = tf.nn.conv1d(self.input_x, self.w_conv1, stride=1, padding="SAME")
         a1 = tf.nn.relu(a1)
-        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(50, 8, 8), 
+        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(50, 32, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
-        a2 = tf.nn.conv1d(a1, self.w_conv2, stride=1, padding="SAME")
+        a2 = tf.nn.conv1d(a1, self.w_conv2, stride=2, padding="SAME")
         a2 = tf.nn.relu(a2)
-        self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(3, 8, 8), 
+        self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(50, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
-        a3 = tf.nn.conv1d(a2, self.w_conv3, stride=1, padding="SAME")
+        a3 = tf.nn.conv1d(a2, self.w_conv3, stride=5, padding="SAME")
         a3 = tf.nn.relu(a3)
+        self.w_conv4 = tf.get_variable("w_conv4"+self.name, shape=(50, 64, 64), 
+                                            initializer=tf.contrib.layers.xavier_initializer()) # fixm
+        a4 = tf.nn.conv1d(a3, self.w_conv4, stride=5, padding="SAME")
+        #pdb.set_trace()
+        a4 = tf.nn.relu(a4)
         # rnn initial state(s)
         self.init_states = []
         self.dyn_rnn_init_states = None
@@ -108,7 +113,7 @@ class TFRNN:
         # outputs_h: [batch_size, max_time, self.output_size]
         #outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, self.input_x, initial_state=self.dyn_rnn_init_states) 
         #modified by xiuyi
-        outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, a2, initial_state=self.dyn_rnn_init_states)   
+        outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, a4, initial_state=self.dyn_rnn_init_states)   
        
         # returns (outputs, state)
         #print("after dyn_rnn outputs_h:", outputs_h.shape, outputs_h.dtype)
@@ -145,7 +150,7 @@ class TFRNN:
         #     (regression, num_out = num_target)
         #pdb.set_trace()
         if loss_function == tf.squared_difference:
-            self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o[:, ::50, :], self.input_y)), unreg_loss(outputs_o))
+            self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o, self.input_y)), unreg_loss(outputs_o))
         elif loss_function == tf.nn.sparse_softmax_cross_entropy_with_logits:
             prepared_labels = tf.cast(tf.squeeze(self.input_y), tf.int32)
             self.total_loss = tf.reduce_mean(loss_function(logits=outputs_o, labels=prepared_labels))
@@ -230,15 +235,15 @@ class TFRNN:
             feed_dict[init_state] = np.random.uniform(-self.init_state_C, self.init_state_C, [batch_size, init_state.shape[1]])
 
         outputs_o = sess.run([self.outputs_o], feed_dict)[0]
-        #pdb.set_trace()
+        pdb.set_trace()
         import matplotlib.pyplot as plt
         net_o = np.reshape(outputs_o, [-1, 2])
         y = np.reshape(Y, [-1, 2])
         plt.subplot(211)
-        plt.plot(net_o[::50, 0], 'r-')
+        plt.plot(net_o[:, 0], 'r-')
         plt.plot(y[:, 0], 'b-')
         plt.subplot(212)
-        plt.plot(net_o[::50, 1], 'r-')
+        plt.plot(net_o[:, 1], 'r-')
         plt.plot(y[:, 1], 'b-')
         plt.show()
 

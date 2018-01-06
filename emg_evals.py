@@ -6,7 +6,7 @@ import numpy as np
 
 loss_path='emg_results/'
 
-glob_learning_rate = 0.01
+glob_learning_rate = 0.001
 glob_decay = 0.90
 
 def serialize_loss(loss, name):
@@ -18,8 +18,8 @@ class Main:
     def init_data(self):
         print('Generating data...')
 
-        self.batch_size=64
-        self.epochs=100
+        self.batch_size=16
+        self.epochs=30
         self.data=EMGProblemDataset(-1, -1)
 
         print('Done.')
@@ -40,9 +40,9 @@ class Main:
         self.emg_lstm=TFRNN(
             name="emg_lstm",
             num_in=1,
-            num_hidden=128,
-            num_out=2,
-            num_target=2,
+            num_hidden=64,
+            num_out=1,
+            num_target=1,
             single_output=False,
             rnn_cell=tf.contrib.rnn.LSTMCell,
             activation_hidden=tf.tanh,

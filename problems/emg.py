@@ -76,12 +76,13 @@ class EMGProblemDataset(Dataset):
         #plt.plot(self.X[:, 0])
         #plt.show()
         #pdb.set_trace()
-        self.X = np.reshape(self.X, [-1, 200, 1]) # signal len = 20
-        self.Y = np.reshape(self.Y, [-1, 4, 2])
-        self.X_train = self.X[:1500, :, :]
-        self.Y_train = self.Y[:1500, :]
-        self.X_valid = self.X[1500:, :, :]
-        self.Y_valid = self.Y[1500:, :]
+        self.X = np.reshape(self.X, [-1, 500, 1]) # signal len = 20
+        self.Y = np.reshape(self.Y, [-1, 10, 2])
+        self.Y = self.Y[:, :, 0]
+        self.X_train = self.X[:500, :, :]
+        self.Y_train = np.expand_dims(self.Y[:500, :], -1)
+        self.X_valid = self.X[500:, :, :]
+        self.Y_valid = np.expand_dims(self.Y[500:, :], -1)
 
     def generate(self, num_samples):
         pass 

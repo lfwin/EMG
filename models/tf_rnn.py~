@@ -41,6 +41,7 @@ class TFRNN:
         self.log_dir = './logs/'
         self.writer = tf.summary.FileWriter(self.log_dir)
 
+
         # init cell
         if rnn_cell == URNNCell:
             self.cell = rnn_cell(num_units = num_hidden, num_in = num_in)
@@ -57,28 +58,36 @@ class TFRNN:
         self.input_x = tf.placeholder(tf.float32, [None, None, num_in], name="input_x_"+self.name)
         self.input_y = tf.placeholder(tf.float32, [None, num_target] if single_output else [None, None, num_target],  
                                       name="input_y_"+self.name)
+        self.keep_prob = tf.placeholder(tf.float32)     
 
         # add by xiuyi
         # add some conv layer for feature extraction and noise removing
 
         #pdb.set_trace()
-        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(50, num_in, 32), 
+        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(21, num_in, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1 = tf.nn.conv1d(self.input_x, self.w_conv1, stride=1, padding="SAME")
         a1 = tf.nn.relu(a1)
-        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(50, 32, 64), 
+        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(50, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
-        a2 = tf.nn.conv1d(a1, self.w_conv2, stride=2, padding="SAME")
+        a2 = tf.nn.conv1d(a1, self.w_conv2, stride=1, padding="SAME")
         a2 = tf.nn.relu(a2)
+        #a2 = tf.nn.dropout(a2, self.keep_prob)
         self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(50, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
-        a3 = tf.nn.conv1d(a2, self.w_conv3, stride=5, padding="SAME")
+        a3 = tf.nn.conv1d(a2, self.w_conv3, stride=2, padding="SAME")
         a3 = tf.nn.relu(a3)
-        self.w_conv4 = tf.get_variable("w_conv4"+self.name, shape=(50, 64, 64), 
+        self.w_conv4 = tf.get_variable("w_conv4"+self.name, shape=(3, 64, 128), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a4 = tf.nn.conv1d(a3, self.w_conv4, stride=5, padding="SAME")
         #pdb.set_trace()
         a4 = tf.nn.relu(a4)
+
+        self.w_conv5 = tf.get_variable("w_conv5"+self.name, shape=(3, 128, 128), 
+                                            initializer=tf.contrib.layers.xavier_initializer()) # fixm
+        a5 = tf.nn.conv1d(a4, self.w_conv5, stride=5, padding="SAME")
+        a5 = tf.nn.relu(a5)
+
         # rnn initial state(s)
         self.init_states = []
         self.dyn_rnn_init_states = None
@@ -113,7 +122,7 @@ class TFRNN:
         # outputs_h: [batch_size, max_time, self.output_size]
         #outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, self.input_x, initial_state=self.dyn_rnn_init_states) 
         #modified by xiuyi
-        outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, a4, initial_state=self.dyn_rnn_init_states)   
+        outputs_h, final_state = tf.nn.dynamic_rnn(self.cell, a5, initial_state=self.dyn_rnn_init_states)   
        
         # returns (outputs, state)
         #print("after dyn_rnn outputs_h:", outputs_h.shape, outputs_h.dtype)
@@ -226,7 +235,7 @@ class TFRNN:
     def plot_res(self, sess, X, Y):
 
         # fill (X,Y) placeholders
-        feed_dict = {self.input_x: X, self.input_y: Y}
+        feed_dict = {self.input_x: X, self.input_y: Y, self.keep_prob:1.0}
         batch_size = X.shape[0]
 
         # fill initial state
@@ -235,16 +244,12 @@ class TFRNN:
             feed_dict[init_state] = np.random.uniform(-self.init_state_C, self.init_state_C, [batch_size, init_state.shape[1]])
 
         outputs_o = sess.run([self.outputs_o], feed_dict)[0]
-        pdb.set_trace()
+        #pdb.set_trace()
         import matplotlib.pyplot as plt
-        net_o = np.reshape(outputs_o, [-1, 2])
-        y = np.reshape(Y, [-1, 2])
-        plt.subplot(211)
-        plt.plot(net_o[:, 0], 'r-')
-        plt.plot(y[:, 0], 'b-')
-        plt.subplot(212)
-        plt.plot(net_o[:, 1], 'r-')
-        plt.plot(y[:, 1], 'b-')
+        net_o = np.reshape(outputs_o, [-1, 1])
+        y = np.reshape(Y, [-1, 1])
+        plt.plot(net_o, 'r-')
+        plt.plot(y, 'b-')
         plt.show()
 
 
@@ -274,8 +279,10 @@ class TFRNN:
         #pdb.set_trace()
         # run and return the loss
         if training:
+            feed_dict[self.keep_prob]=0.75
             loss, _ = sess.run([self.total_loss, self.train_step], feed_dict)
         else:
+            feed_dict[self.keep_prob]=1.0
             loss = sess.run([self.total_loss], feed_dict)[0]
         return loss
 

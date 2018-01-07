@@ -59,7 +59,7 @@ class EMGProblemDataset(Dataset):
                     self.X.append(normalize(data["emg"+tmp]))
                     #self.Y.append(normalize(signal.resample(data["imu"+tmp], 64000)))
                     self.Y.append(normalize(data["imu"+tmp]))
-        self.X = np.reshape(np.array(self.X), [64000*7, 1])
+        self.X = np.abs(np.reshape(np.array(self.X), [64000*7, 1]))
         self.Y = np.reshape(np.array(self.Y), [1280*7, 2])
         #pdb.set_trace()
         #self.X = (self.X - np.mean(self.X[:3000]))/np.std(self.X[:3000])
@@ -76,13 +76,13 @@ class EMGProblemDataset(Dataset):
         #plt.plot(self.X[:, 0])
         #plt.show()
         #pdb.set_trace()
-        self.X = np.reshape(self.X, [-1, 500, 1]) # signal len = 20
-        self.Y = np.reshape(self.Y, [-1, 10, 2])
+        self.X = np.reshape(self.X, [-1, 1600, 1]) # signal len = 1000
+        self.Y = np.reshape(self.Y, [-1, 32, 2])
         self.Y = self.Y[:, :, 0]
-        self.X_train = self.X[:500, :, :]
-        self.Y_train = np.expand_dims(self.Y[:500, :], -1)
-        self.X_valid = self.X[500:, :, :]
-        self.Y_valid = np.expand_dims(self.Y[500:, :], -1)
+        self.X_train = self.X[:200, :, :]
+        self.Y_train = np.expand_dims(self.Y[:200, :], -1)
+        self.X_valid = self.X[200:, :, :]
+        self.Y_valid = np.expand_dims(self.Y[200:, :], -1)
 
     def generate(self, num_samples):
         pass 

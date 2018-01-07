@@ -6,7 +6,7 @@ import numpy as np
 
 loss_path='emg_results/'
 
-glob_learning_rate = 0.001
+glob_learning_rate = 0.003
 glob_decay = 0.85
 
 def serialize_loss(loss, name):
@@ -19,7 +19,7 @@ class Main:
         print('Generating data...')
 
         self.batch_size=12
-        self.epochs=50
+        self.epochs=70
         self.data=EMGProblemDataset(-1, -1)
 
         print('Done.')

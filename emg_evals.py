@@ -19,7 +19,7 @@ class Main:
         print('Generating data...')
 
         self.batch_size=12
-        self.epochs=50
+        self.epochs=60
         self.data=EMGProblemDataset(-1, -1)
 
         print('Done.')

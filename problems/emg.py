@@ -59,7 +59,7 @@ class EMGProblemDataset(Dataset):
                     self.X.append(normalize(data["emg"+tmp]))
                     #self.Y.append(normalize(signal.resample(data["imu"+tmp], 64000)))
                     self.Y.append(normalize(data["imu"+tmp]))
-        self.X = np.abs(np.reshape(np.array(self.X), [64000*7, 1]))
+        self.X = np.reshape(np.array(self.X), [64000*7, 1])
         self.Y = np.reshape(np.array(self.Y), [1280*7, 2])
         #pdb.set_trace()
         #self.X = (self.X - np.mean(self.X[:3000]))/np.std(self.X[:3000])

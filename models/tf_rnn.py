@@ -68,19 +68,19 @@ class TFRNN:
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1 = tf.nn.conv1d(self.input_x, self.w_conv1, stride=1, padding="SAME")
         a1 = tf.nn.relu(a1)
-        a1 = tf.multiply(tf.cast(tf.less_equal(a1, 0.5), tf.float32), a1)
+        #a1 = tf.multiply(tf.cast(tf.less_equal(a1, 0.5), tf.float32), a1)
 
         self.w_conv1_1 = tf.get_variable("w_conv1_1"+self.name, shape=(5, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1_1 = tf.nn.conv1d(a1, self.w_conv1_1, stride=1, padding="SAME")
         a1_1 = tf.nn.relu(a1_1)
-        a1_1 = tf.multiply(tf.cast(tf.less_equal(a1_1, 0.5), tf.float32), a1_1)
+        #a1_1 = tf.multiply(tf.cast(tf.less_equal(a1_1, 0.5), tf.float32), a1_1)
 
         self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(11, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a2 = tf.nn.conv1d(a1_1, self.w_conv2, stride=1, padding="SAME")
         a2 = tf.nn.relu(a2)
-        a2 = tf.multiply(tf.cast(tf.less_equal(a2, 0.5), tf.float32), a2)
+        #a2 = tf.multiply(tf.cast(tf.less_equal(a2, 0.5), tf.float32), a2)
         self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(21, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a3 = tf.nn.conv1d(a2, self.w_conv3, stride=2, padding="SAME")
@@ -243,6 +243,8 @@ class TFRNN:
     def plot_res(self, sess, X, Y):
 
         # fill (X,Y) placeholders
+        X = np.reshape(X,[1, -1, 1])
+        Y = np.reshape(Y,[1, -1, 1])
         feed_dict = {self.input_x: X, self.input_y: Y, self.keep_prob:1.0}
         batch_size = X.shape[0]
 
@@ -274,7 +276,10 @@ class TFRNN:
             print("Test set loss:", test_loss)
 
     def evaluate(self, sess, X, Y, training=False):
-
+        if X.shape[0] != 1 and training == False:
+            #pdb.set_trace()
+            X = np.reshape(X,[1, -1, 1])
+            Y = np.reshape(Y,[1, -1, 1])
         # fill (X,Y) placeholders
         feed_dict = {self.input_x: X, self.input_y: Y}
         batch_size = X.shape[0]

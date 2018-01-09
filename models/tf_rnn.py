@@ -77,13 +77,13 @@ class TFRNN:
         a1_1 = tf.nn.conv1d(a1, self.w_conv1_1, stride=1, padding="SAME")
         a1_1 = tf.nn.relu(a1_1)
 
-        #a1_1 = tf.multiply(tf.cast(tf.less_equal(a1_1, 0.45), tf.float32), a1_1)
+        a1_1 = tf.multiply(tf.cast(tf.less_equal(a1_1, 0.5), tf.float32), a1_1)
 
         self.w_conv1_2 = tf.get_variable("w_conv1_2"+self.name, shape=(5, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1_2 = tf.nn.conv1d(a1_1, self.w_conv1_2, stride=1, padding="SAME")
         a1_2 = tf.nn.relu(a1_2)
-        a1_2 = tf.multiply(tf.cast(tf.less_equal(a1_2, 0.45), tf.float32), a1_2)
+        #a1_2 = tf.multiply(tf.cast(tf.less_equal(a1_2, 0.45), tf.float32), a1_2)
 
         #a1_1 = tf.multiply(tf.cast(tf.less_equal(a1_1, 0.5), tf.float32), a1_1)
 
@@ -164,7 +164,15 @@ class TFRNN:
         # calculate losses and set up optimizer
          
         # add by xiuyi 
-        # due emg signal two noise, add a nonlinear and convolution 
+        # add a reg loss for unreg prediction
+        diff = outputs_o[:, 1:, :] - outputs_o[:, 0:-1, :]
+        #ddiff = diff[:, 1:, :] - diff[:, 0:-1, :]
+        abs_diff = tf.abs(diff)
+        mean = tf.reduce_mean(abs_diff)
+        mask = tf.cast(tf.greater_equal(abs_diff, 4*mean), tf.float32)
+        mask_sum = tf.reduce_sum(mask)
+        cond = tf.greater(mask_sum, 0)
+        reg = tf.cond(cond, lambda:tf.div(tf.reduce_sum(tf.multiply(mask, abs_diff)), mask_sum), lambda:tf.constant(0.0))
 
         #pdb.set_trace()
         #outputs_o = tf.nn.relu(outputs_o)
@@ -180,7 +188,7 @@ class TFRNN:
         #     (regression, num_out = num_target)
         #pdb.set_trace()
         if loss_function == tf.squared_difference:
-            self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o, self.input_y)), unreg_loss(outputs_o))
+            self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o, self.input_y)), reg)
         elif loss_function == tf.nn.sparse_softmax_cross_entropy_with_logits:
             prepared_labels = tf.cast(tf.squeeze(self.input_y), tf.int32)
             self.total_loss = tf.reduce_mean(loss_function(logits=outputs_o, labels=prepared_labels))

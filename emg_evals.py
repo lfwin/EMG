@@ -6,7 +6,7 @@ import numpy as np
 
 loss_path='emg_results/'
 
-glob_learning_rate = 0.001
+glob_learning_rate = 0.0003
 glob_decay = 0.85
 
 def serialize_loss(loss, name):

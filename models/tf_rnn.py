@@ -3,6 +3,27 @@ import tensorflow as tf
 from .urnn_cell import URNNCell
 import pdb
 
+def get_incoming_shape(incoming):
+    """ Returns the incoming data shape """
+    if isinstance(incoming, tf.Tensor):
+        return incoming.get_shape().as_list()
+    elif type(incoming) in [np.array, list, tuple]:
+        return np.shape(incoming)
+    else:
+        raise Exception("Invalid incoming layer.")
+
+def bi_relu(x):
+    """
+    return [relu(x), -relu(-x)]
+    """
+    #from tflearn.layers.conv import max_pool_2d
+    input_shape = get_incoming_shape(x)
+    res = tf.concat([tf.nn.relu(x),  tf.negative(tf.nn.relu(tf.negative(x)))], len(input_shape)-1)
+    
+    #print(tf.shape(res))
+    
+    return res
+
 # add by xiuyi
 # add a loss that penalize the unregular angle prediction of RNN
 def unreg_loss(pred, alpha=0.3):
@@ -64,50 +85,32 @@ class TFRNN:
         # add some conv layer for feature extraction and noise removing
 
         #pdb.set_trace()
-        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(5, num_in, 64), 
+        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(5, num_in, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1 = tf.nn.conv1d(self.input_x, self.w_conv1, stride=1, padding="SAME")
-        a1 = tf.nn.relu(a1)
-
-        #a1 = tf.multiply(tf.cast(tf.less_equal(a1, 0.5), tf.float32), a1)
+        a1 = bi_relu(a1)
 
 
-        self.w_conv1_1 = tf.get_variable("w_conv1_1"+self.name, shape=(5, 64, 64), 
+        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(11, 64, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
-        a1_1 = tf.nn.conv1d(a1, self.w_conv1_1, stride=1, padding="SAME")
-        a1_1 = tf.nn.relu(a1_1)
-
-        a1_1 = tf.multiply(tf.cast(tf.less_equal(a1_1, 0.5), tf.float32), a1_1)
-
-        self.w_conv1_2 = tf.get_variable("w_conv1_2"+self.name, shape=(5, 64, 64), 
-                                            initializer=tf.contrib.layers.xavier_initializer()) # fixm
-        a1_2 = tf.nn.conv1d(a1_1, self.w_conv1_2, stride=1, padding="SAME")
-        a1_2 = tf.nn.relu(a1_2)
-        #a1_2 = tf.multiply(tf.cast(tf.less_equal(a1_2, 0.45), tf.float32), a1_2)
-
-        #a1_1 = tf.multiply(tf.cast(tf.less_equal(a1_1, 0.5), tf.float32), a1_1)
-
-
-        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(11, 64, 64), 
-                                            initializer=tf.contrib.layers.xavier_initializer()) # fixm
-        a2 = tf.nn.conv1d(a1_2, self.w_conv2, stride=1, padding="SAME")
-        a2 = tf.nn.relu(a2)
+        a2 = tf.nn.conv1d(a1, self.w_conv2, stride=1, padding="SAME")
+        a2 = bi_relu(a2)
         #a2 = tf.multiply(tf.cast(tf.less_equal(a2, 0.5), tf.float32), a2)
-        self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(21, 64, 64), 
+        self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(21, 64, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
 
         a3 = tf.nn.conv1d(a2, self.w_conv3, stride=2, padding="SAME")
-        a3 = tf.nn.relu(a3)
-        self.w_conv4 = tf.get_variable("w_conv4"+self.name, shape=(31, 64, 128), 
+        a3 = bi_relu(a3)
+        self.w_conv4 = tf.get_variable("w_conv4"+self.name, shape=(31, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a4 = tf.nn.conv1d(a3, self.w_conv4, stride=5, padding="SAME")
         #pdb.set_trace()
-        a4 = tf.nn.relu(a4)
+        a4 = bi_relu(a4)
 
-        self.w_conv5 = tf.get_variable("w_conv5"+self.name, shape=(51, 128, 256), 
+        self.w_conv5 = tf.get_variable("w_conv5"+self.name, shape=(51, 128, 128), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a5 = tf.nn.conv1d(a4, self.w_conv5, stride=5, padding="SAME")
-        a5 = tf.nn.relu(a5)
+        a5 = bi_relu(a5)
 
         # rnn initial state(s)
         self.init_states = []

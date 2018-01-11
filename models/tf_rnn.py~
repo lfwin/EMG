@@ -12,14 +12,33 @@ def get_incoming_shape(incoming):
     else:
         raise Exception("Invalid incoming layer.")
 
+def norm_bi_relu(x):
+    pdb.set_trace()
+    input_shape = get_incoming_shape(x) 
+    m = tf.reduce_mean(tf.reshape(x, [-1, input_shape[-1]]), axis=0) 
+    
+
 def bi_relu(x):
     """
     return [relu(x), -relu(-x)]
     """
     #from tflearn.layers.conv import max_pool_2d
     input_shape = get_incoming_shape(x)
-    res = tf.concat([tf.nn.relu(x),  tf.negative(tf.nn.relu(tf.negative(x)))], len(input_shape)-1)
-    
+    #res = tf.concat([tf.nn.relu(x),  tf.negative(tf.nn.relu(tf.negative(x)))], len(input_shape)-1)
+    pos = tf.nn.relu(x)
+    neg = tf.negative(tf.nn.relu(tf.negative(x)))
+
+    #pdb.set_trace()
+    axis = range(len(input_shape)-1)
+    _, var_x = tf.nn.moments(x, axes=axis) 
+    m_pos, var_pos = tf.nn.moments(pos, axes=axis) 
+    m_neg, var_neg = tf.nn.moments(neg, axes=axis) 
+
+    norm = tf.sqrt(tf.add(2*tf.multiply(m_pos, m_neg), var_x))
+    pos = tf.divide(pos, norm+1e-7)
+    neg = tf.divide(neg, norm+1e-7)
+
+    res = tf.concat([pos, neg], len(input_shape)-1)
     #print(tf.shape(res))
     
     return res
@@ -85,23 +104,25 @@ class TFRNN:
         # add some conv layer for feature extraction and noise removing
 
         #pdb.set_trace()
-        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(5, num_in, 64), 
+        self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(5, num_in, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1 = tf.nn.conv1d(self.input_x, self.w_conv1, stride=1, padding="SAME")
         a1 = bi_relu(a1)
 
 
-        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(11, 64, 64), 
+        self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(11, 64, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a2 = tf.nn.conv1d(a1, self.w_conv2, stride=1, padding="SAME")
         a2 = bi_relu(a2)
+        #a2 = norm_bi_relu(a2)
+
         #a2 = tf.multiply(tf.cast(tf.less_equal(a2, 0.5), tf.float32), a2)
-        self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(21, 64, 64), 
+        self.w_conv3 = tf.get_variable("w_conv3"+self.name, shape=(21, 64, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
 
         a3 = tf.nn.conv1d(a2, self.w_conv3, stride=2, padding="SAME")
         a3 = bi_relu(a3)
-        self.w_conv4 = tf.get_variable("w_conv4"+self.name, shape=(31, 64, 128), 
+        self.w_conv4 = tf.get_variable("w_conv4"+self.name, shape=(31, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a4 = tf.nn.conv1d(a3, self.w_conv4, stride=5, padding="SAME")
         #pdb.set_trace()
@@ -172,7 +193,7 @@ class TFRNN:
         #ddiff = diff[:, 1:, :] - diff[:, 0:-1, :]
         abs_diff = tf.abs(diff)
         mean = tf.reduce_mean(abs_diff)
-        mask = tf.cast(tf.greater_equal(abs_diff, 4*mean), tf.float32)
+        mask = tf.cast(tf.greater_equal(abs_diff, 3*mean), tf.float32)
         mask_sum = tf.reduce_sum(mask)
         cond = tf.greater(mask_sum, 0)
         reg = tf.cond(cond, lambda:tf.div(tf.reduce_sum(tf.multiply(mask, abs_diff)), mask_sum), lambda:tf.constant(0.0))
@@ -191,7 +212,7 @@ class TFRNN:
         #     (regression, num_out = num_target)
         #pdb.set_trace()
         if loss_function == tf.squared_difference:
-            self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o, self.input_y)), reg)
+            self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o, self.input_y)), 0.5*reg)
         elif loss_function == tf.nn.sparse_softmax_cross_entropy_with_logits:
             prepared_labels = tf.cast(tf.squeeze(self.input_y), tf.int32)
             self.total_loss = tf.reduce_mean(loss_function(logits=outputs_o, labels=prepared_labels))

@@ -8,12 +8,20 @@ from sets import Set
 #from models.loss import smooth
 
 def normalize(X):
-  if X.shape[1] == 1:
-      X = (X - np.mean(X))/np.std(X)
-  else:
-      X[:, 0] = (X[:, 0] - np.mean(X[:, 0]))/np.std(X[:, 0])      
-      X[:, 1] = (X[:, 1] - np.mean(X[:, 1]))/np.std(X[:, 1])      
-  return X
+    if X.shape[1] == 1:
+        m_emg = np.mean(X)
+        std_emg = np.std(X)
+        X = (X - m_emg)/std_emg
+    elif X.shape[1] == 2:
+        m_speed = np.mean(X[:, 0])
+        std_speed = np.std(X[:, 0]) 
+        m_speed_acc = np.mean(X[:, 1])
+        std_speed_acc = np.std(X[:, 1]) 
+        X[:, 0] = (X[:, 0] - m_speed)/ std_speed    
+        X[:, 1] = (X[:, 1] - m_speed_acc)/std_speed_acc 
+    else:
+        raise Exception("data format not correct")    
+    return X
 
 class EMGProblemDataset(Dataset):
     def __init__(self, num_samples, sample_len):
@@ -26,28 +34,8 @@ class EMGProblemDataset(Dataset):
                     array = []
                     for line in f: # read rest of lines
                         array.append([float(x) for x in line.split()])
-                data[file_name] = np.asarray(array)
-        """
-                plt.subplot(211)
-                plt.plot(np.asarray(array))
-                data[file_name] = smooth(np.asarray(array), 5)
-                plt.subplot(212)
-                plt.plot(smooth(np.asarray(array), 5))
-                plt.show()       
+                data[file_name] = normalize(np.asarray(array))
 
-        for file_name in os.listdir("emg_data/"):
-            if file_name.endswith(".txt") and file_name.startswith('emg_'):
-                with open("emg_data/"+file_name, 'r') as f:
-                    emg_array = []
-                    for line in f: # read rest of lines
-                        emg_array.append([float(x) for x in line.split()])
-                
-            elif file_name.endswith(".txt") and file_name.startswith('imu_'):
-                with open("emg_data/"+file_name, 'r') as f:
-                    imu_array = []
-                    for line in f: # read rest of lines
-                        imu_array.append([float(x) for x in line.split()])
-        """
         #pdb.set_trace()
         self.X = []
         self.Y = []
@@ -56,33 +44,40 @@ class EMGProblemDataset(Dataset):
                 tmp = "_" + str(i) + "_" + j + ".txt"
                 names = Set(data.keys())
                 if "emg"+tmp in names:
-                    self.X.append(normalize(data["emg"+tmp]))
-                    #self.Y.append(normalize(signal.resample(data["imu"+tmp], 64000)))
-                    self.Y.append(normalize(data["imu"+tmp]))
+                    #pdb.set_trace()
+                    self.X.append(data["emg"+tmp])
+                    self.Y.append(data["imu"+tmp])
+        #pdb.set_trace()
         self.X = np.reshape(np.array(self.X), [64000*7, 1])
         self.Y = np.reshape(np.array(self.Y), [1280*7, 2])
-        #pdb.set_trace()
-        #self.X = (self.X - np.mean(self.X[:3000]))/np.std(self.X[:3000])
-        #plt.plot(self.X)
-        #plt.show()
-        #self.Y[:, 0] = (self.Y[:, 0] - np.mean(self.Y[:3000, 0]))/np.std(self.Y[:3000, 0])
-        #self.Y[:, 1] = (self.Y[:, 1] - np.mean(self.Y[:3000, 1]))/np.std(self.Y[:3000, 1])
 
-
-        #plt.plot(self.Y)
-        #plt.show()
-        #pdb.set_trace()
-        #self.Y = signal.resample(self.Y, self.X.shape[0])
-        #plt.plot(self.X[:, 0])
-        #plt.show()
         #pdb.set_trace()
         self.X = np.reshape(self.X, [-1, 1600, 1]) # signal len = 1000
         self.Y = np.reshape(self.Y, [-1, 32, 2])
         self.Y = self.Y[:, :, 0]
         self.X_train = self.X[:200, :, :]
         self.Y_train = np.expand_dims(self.Y[:200, :], -1)
+
+        self.m_emg = np.mean(self.X_train)
+        self.std_emg = np.std(self.X_train)
+        self.X = (self.X - self.m_emg)/self.std_emg
+
+        self.m_speed = np.mean(self.Y_train[:, :, 0])
+        self.std_speed = np.std(self.Y_train[:, :, 0]) 
+        self.Y_train[:, :, 0] = (self.Y_train[:, :, 0] - self.m_speed)/ self.std_speed 
+
         self.X_valid = self.X[200:, :, :]
+        self.X_valid = (self.X_valid - self.m_emg)/self.std_emg
+
         self.Y_valid = np.expand_dims(self.Y[200:, :], -1)
+        self.Y_valid[:, :, 0] = (self.Y_valid[:, :, 0] - self.m_speed)/ self.std_speed 
+
+    def shift_data(self, X):
+        #pdb.set_trace()
+        X[1:, :] = X[1:, :] - X[0:-1, :]
+        X[0, :] = 0
+        
+        return X
 
     def generate(self, num_samples):
         pass 

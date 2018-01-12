@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 from .urnn_cell import URNNCell
 import pdb
+from models.birelu_norm import bi_relu_norm
 
 def get_incoming_shape(incoming):
     """ Returns the incoming data shape """
@@ -12,11 +13,6 @@ def get_incoming_shape(incoming):
     else:
         raise Exception("Invalid incoming layer.")
 
-def norm_bi_relu(x):
-    pdb.set_trace()
-    input_shape = get_incoming_shape(x) 
-    m = tf.reduce_mean(tf.reshape(x, [-1, input_shape[-1]]), axis=0) 
-    
 
 def bi_relu(x):
     """
@@ -98,7 +94,7 @@ class TFRNN:
         self.input_x = tf.placeholder(tf.float32, [None, None, num_in], name="input_x_"+self.name)
         self.input_y = tf.placeholder(tf.float32, [None, num_target] if single_output else [None, None, num_target],  
                                       name="input_y_"+self.name)
-        self.keep_prob = tf.placeholder(tf.float32)     
+        self.training = tf.placeholder(tf.bool)     
 
         # add by xiuyi
         # add some conv layer for feature extraction and noise removing
@@ -107,13 +103,13 @@ class TFRNN:
         self.w_conv1 = tf.get_variable("w_conv1"+self.name, shape=(5, num_in, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a1 = tf.nn.conv1d(self.input_x, self.w_conv1, stride=1, padding="SAME")
-        a1 = bi_relu(a1)
+        a1 = bi_relu_norm(a1, self.training)
 
 
         self.w_conv2 = tf.get_variable("w_conv2"+self.name, shape=(11, 64, 32), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a2 = tf.nn.conv1d(a1, self.w_conv2, stride=1, padding="SAME")
-        a2 = bi_relu(a2)
+        a2 = bi_relu_norm(a2, self.training)
         #a2 = norm_bi_relu(a2)
 
         #a2 = tf.multiply(tf.cast(tf.less_equal(a2, 0.5), tf.float32), a2)
@@ -121,17 +117,18 @@ class TFRNN:
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
 
         a3 = tf.nn.conv1d(a2, self.w_conv3, stride=2, padding="SAME")
-        a3 = bi_relu(a3)
+        a3 = bi_relu_norm(a3, self.training)
+
         self.w_conv4 = tf.get_variable("w_conv4"+self.name, shape=(31, 64, 64), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a4 = tf.nn.conv1d(a3, self.w_conv4, stride=5, padding="SAME")
         #pdb.set_trace()
-        a4 = bi_relu(a4)
+        a4 = bi_relu_norm(a4, self.training)
 
         self.w_conv5 = tf.get_variable("w_conv5"+self.name, shape=(51, 128, 128), 
                                             initializer=tf.contrib.layers.xavier_initializer()) # fixm
         a5 = tf.nn.conv1d(a4, self.w_conv5, stride=5, padding="SAME")
-        a5 = bi_relu(a5)
+        a5 = bi_relu_norm(a5, self.training)
 
         # rnn initial state(s)
         self.init_states = []
@@ -212,7 +209,8 @@ class TFRNN:
         #     (regression, num_out = num_target)
         #pdb.set_trace()
         if loss_function == tf.squared_difference:
-            self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o, self.input_y)), 0.5*reg)
+            #self.total_loss = tf.add(tf.reduce_mean(loss_function(outputs_o, self.input_y)), 0.5*reg)
+            self.total_loss = tf.reduce_mean(loss_function(outputs_o, self.input_y))
         elif loss_function == tf.nn.sparse_softmax_cross_entropy_with_logits:
             prepared_labels = tf.cast(tf.squeeze(self.input_y), tf.int32)
             self.total_loss = tf.reduce_mean(loss_function(logits=outputs_o, labels=prepared_labels))
@@ -290,7 +288,7 @@ class TFRNN:
         # fill (X,Y) placeholders
         X = np.reshape(X,[1, -1, 1])
         Y = np.reshape(Y,[1, -1, 1])
-        feed_dict = {self.input_x: X, self.input_y: Y, self.keep_prob:1.0}
+        feed_dict = {self.input_x: X, self.input_y: Y, self.training:False}
         batch_size = X.shape[0]
 
         # fill initial state
@@ -326,7 +324,7 @@ class TFRNN:
             X = np.reshape(X,[1, -1, 1])
             Y = np.reshape(Y,[1, -1, 1])
         # fill (X,Y) placeholders
-        feed_dict = {self.input_x: X, self.input_y: Y}
+        feed_dict = {self.input_x: X, self.input_y: Y, self.training:training}
         batch_size = X.shape[0]
         
         #pdb.set_trace()
@@ -337,10 +335,8 @@ class TFRNN:
         #pdb.set_trace()
         # run and return the loss
         if training:
-            feed_dict[self.keep_prob]=0.75
             loss, _ = sess.run([self.total_loss, self.train_step], feed_dict)
         else:
-            feed_dict[self.keep_prob]=1.0
             loss = sess.run([self.total_loss], feed_dict)[0]
         return loss
 
